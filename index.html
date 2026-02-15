@@ -1,0 +1,1256 @@
+---
+layout: none
+---
+
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLYGON CLASSIFIER</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0a;
+            --bg-card: #111111;
+            --border: #00ff88;
+            --text-primary: #ffffff;
+            --text-secondary: #888888;
+            --accent: #00ff88;
+            --accent-dim: rgba(0, 255, 136, 0.1);
+            --error: #ff3366;
+            --warning: #ffaa00;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated background grid */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                    linear-gradient(var(--accent-dim) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--accent-dim) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+            animation: gridScroll 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes gridScroll {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Space Mono', monospace;
+            font-size: 3.5em;
+            font-weight: 700;
+            letter-spacing: -2px;
+            color: var(--accent);
+            text-transform: uppercase;
+            animation: glitchTitle 3s ease-in-out infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes glitchTitle {
+            0%, 90%, 100% { transform: translate(0); }
+            92% { transform: translate(-2px, 2px); }
+            94% { transform: translate(2px, -2px); }
+            96% { transform: translate(-2px, -2px); }
+            98% { transform: translate(2px, 2px); }
+        }
+
+        .subtitle {
+            font-family: 'Space Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            letter-spacing: 3px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .canvas-section {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 0;
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
+            opacity: 0.1;
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        .canvas-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .zoom-info {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: #0a0a0a;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        .canvas-wrapper.grabbing {
+            cursor: grabbing !important;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.1; }
+            50% { transform: scale(1.1); opacity: 0.2; }
+        }
+
+        .section-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8em;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '▸';
+            font-size: 1.2em;
+        }
+
+        #polygonCanvas {
+            width: 100%;
+            height: 500px;
+            background: #000000;
+            border: 1px solid var(--border);
+            cursor: crosshair;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        .canvas-info {
+            margin-top: 15px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-panel {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            padding: 25px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: transparent;
+            border: 2px solid var(--border);
+            color: var(--accent);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9em;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--accent);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        .btn:hover::before {
+            left: 0;
+        }
+
+        .btn:hover {
+            color: #000000;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-danger {
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        .btn-danger::before {
+            background: var(--error);
+        }
+
+        .btn + .btn {
+            margin-top: 10px;
+        }
+
+        .results-panel {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            padding: 25px;
+            min-height: 200px;
+        }
+
+        .result-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 255, 136, 0.05);
+            border-left: 3px solid var(--accent);
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .result-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 1.8em;
+            font-weight: 800;
+            color: var(--accent);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .polygon-name {
+            font-size: 2.5em !important;
+            background: linear-gradient(135deg, var(--accent), #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.3); }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .stat-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .instructions {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .instruction-list {
+            list-style: none;
+            font-size: 0.9em;
+            line-height: 1.8;
+        }
+
+        .instruction-list li {
+            padding-left: 25px;
+            position: relative;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .instruction-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .point-marker {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            animation: pointPop 0.3s ease;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        @keyframes pointPop {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            50% { transform: translate(-50%, -50%) scale(1.5); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .error-message {
+            color: var(--error);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            padding: 15px;
+            border: 2px solid var(--error);
+            background: rgba(255, 51, 102, 0.1);
+            margin-top: 15px;
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 255, 136, 0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 968px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2.5em;
+            }
+
+            #polygonCanvas {
+                height: 400px;
+            }
+        }
+
+        .mode-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 2px solid var(--accent);
+            padding: 10px 20px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8em;
+            color: var(--accent);
+            z-index: 1000;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+<div class="mode-indicator">MODE: INTERACTIVE</div>
+
+<div class="container">
+    <header>
+        <h1>Polygon Classifier</h1>
+        <div class="subtitle">Sistema di Classificazione Geometrica</div>
+    </header>
+
+    <div class="instructions">
+        <div class="section-title">Istruzioni & Regole di Validazione</div>
+        <ul class="instruction-list">
+            <li>Clicca sul piano cartesiano (tasto sinistro) per aggiungere i vertici del poligono</li>
+            <li>Usa la rotellina del mouse per ZOOM IN/OUT sul piano</li>
+            <li>Usa il tasto DESTRO del mouse e trascina per spostare il piano (PAN)</li>
+            <li>Oppure: tieni premuto SHIFT o CTRL + tasto sinistro e trascina per PAN</li>
+            <li>Il poligono diventa ROSSO se non è valido (segmenti intersecanti o punti collineari)</li>
+            <li>Usa "CHIUDI POLIGONO" per completare la figura</li>
+            <li>Il pulsante "RESET" cancella tutto e resetta il piano alla vista iniziale</li>
+        </ul>
+    </div>
+
+    <div class="main-grid">
+        <div class="canvas-section">
+            <div class="section-title">Piano Cartesiano Interattivo</div>
+            <div class="canvas-controls">
+                <div class="zoom-info">
+                    <span>ZOOM: <span id="zoomLevel">100%</span></span>
+                    <span>|</span>
+                    <span>ORIGINE: (<span id="originX">0</span>, <span id="originY">0</span>)</span>
+                </div>
+            </div>
+            <div class="canvas-wrapper" id="canvasWrapper">
+                <canvas id="polygonCanvas"></canvas>
+            </div>
+            <div class="canvas-info">
+                <span>VERTICES: <span id="vertexCount">0</span></span>
+                <span>STATUS: <span id="canvasStatus">ATTESA INPUT</span></span>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="control-panel">
+                <div class="section-title">Controlli</div>
+                <button class="btn" onclick="analyzePolygon()">ANALIZZA POLIGONO</button>
+                <button class="btn" onclick="closePolygon()">CHIUDI POLIGONO</button>
+                <button class="btn btn-danger" onclick="resetCanvas()">RESET</button>
+            </div>
+
+            <div class="results-panel">
+                <div class="section-title">Risultati</div>
+                <div id="results">
+                    <div style="text-align: center; color: var(--text-secondary); padding: 40px 20px;">
+                        <div style="font-size: 3em; margin-bottom: 10px;">⬡</div>
+                        <div>Nessun dato disponibile</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="detailedStats"></div>
+</div>
+
+<script>
+    const canvas = document.getElementById('polygonCanvas');
+    const canvasWrapper = document.getElementById('canvasWrapper');
+    const ctx = canvas.getContext('2d');
+    let points = [];
+    let isClosed = false;
+
+    // Cartesian plane state
+    let scale = 1; // zoom level
+    let offsetX = 0; // pan offset
+    let offsetY = 0;
+    let gridSize = 50; // pixels per unit
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    let isAddingPoint = false;
+
+    // Setup canvas
+    function resizeCanvas() {
+        const rect = canvasWrapper.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        drawCartesianPlane();
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Convert screen coordinates to cartesian coordinates
+    function screenToCartesian(screenX, screenY) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        const cartX = (screenX - centerX - offsetX) / (gridSize * scale);
+        const cartY = -(screenY - centerY - offsetY) / (gridSize * scale);
+
+        return { x: cartX, y: cartY };
+    }
+
+    // Convert cartesian coordinates to screen coordinates
+    function cartesianToScreen(cartX, cartY) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        const screenX = cartX * gridSize * scale + centerX + offsetX;
+        const screenY = -cartY * gridSize * scale + centerY + offsetY;
+
+        return { x: screenX, y: screenY };
+    }
+
+    // Draw cartesian plane with grid
+    function drawCartesianPlane() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const centerX = canvas.width / 2 + offsetX;
+        const centerY = canvas.height / 2 + offsetY;
+        const actualGridSize = gridSize * scale;
+
+        // Draw grid lines
+        ctx.strokeStyle = 'rgba(0, 255, 136, 0.1)';
+        ctx.lineWidth = 1;
+
+        // Vertical lines
+        for (let x = centerX % actualGridSize; x < canvas.width; x += actualGridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+
+        // Horizontal lines
+        for (let y = centerY % actualGridSize; y < canvas.height; y += actualGridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+
+        // Draw main axes (thicker)
+        ctx.strokeStyle = 'rgba(0, 255, 136, 0.5)';
+        ctx.lineWidth = 2;
+
+        // X-axis
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(canvas.width, centerY);
+        ctx.stroke();
+
+        // Y-axis
+        ctx.beginPath();
+        ctx.moveTo(centerX, 0);
+        ctx.lineTo(centerX, canvas.height);
+        ctx.stroke();
+
+        // Draw axis labels
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.6)';
+        ctx.font = '12px Space Mono';
+
+        // X-axis numbers
+        const startXUnit = Math.floor((0 - centerX) / actualGridSize);
+        const endXUnit = Math.ceil((canvas.width - centerX) / actualGridSize);
+        for (let i = startXUnit; i <= endXUnit; i++) {
+            if (i === 0) continue;
+            const x = centerX + i * actualGridSize;
+            if (x > 0 && x < canvas.width) {
+                ctx.fillText(i.toString(), x - 8, centerY + 20);
+            }
+        }
+
+        // Y-axis numbers
+        const startYUnit = Math.floor((0 - centerY) / actualGridSize);
+        const endYUnit = Math.ceil((canvas.height - centerY) / actualGridSize);
+        for (let i = startYUnit; i <= endYUnit; i++) {
+            if (i === 0) continue;
+            const y = centerY - i * actualGridSize;
+            if (y > 20 && y < canvas.height) {
+                ctx.fillText(i.toString(), centerX + 10, y + 5);
+            }
+        }
+
+        // Draw origin label
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.8)';
+        ctx.font = 'bold 14px Space Mono';
+        ctx.fillText('O', centerX + 10, centerY - 10);
+
+        // Draw arrow heads
+        drawArrowHead(canvas.width - 10, centerY, 0);
+        drawArrowHead(centerX, 10, Math.PI / 2);
+
+        // Draw polygon if points exist
+        drawPolygon();
+    }
+
+    function drawArrowHead(x, y, angle) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.5)';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-8, -5);
+        ctx.lineTo(-8, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Mouse events for pan
+    canvasWrapper.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Right click or middle click = pan mode
+        if (e.button === 2 || e.button === 1) {
+            e.preventDefault();
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            canvasWrapper.classList.add('grabbing');
+            return;
+        }
+
+        // Left click with shift/ctrl = pan mode
+        if (e.button === 0 && (e.shiftKey || e.ctrlKey)) {
+            e.preventDefault();
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            canvasWrapper.classList.add('grabbing');
+            return;
+        }
+
+        // Left click = add point (if not closed and not near existing point)
+        if (e.button === 0 && !isClosed) {
+            const clickedPoint = getPointAtPosition(mouseX, mouseY);
+            if (clickedPoint === null) {
+                isAddingPoint = true;
+            }
+        }
+    });
+
+    canvasWrapper.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+
+            offsetX += dx;
+            offsetY += dy;
+
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            drawCartesianPlane();
+            updateOriginDisplay();
+        }
+    });
+
+    canvasWrapper.addEventListener('mouseup', (e) => {
+        if (isAddingPoint && !isDragging) {
+            addPoint(e);
+            isAddingPoint = false;
+        }
+        isDragging = false;
+        canvasWrapper.classList.remove('grabbing');
+    });
+
+    canvasWrapper.addEventListener('mouseleave', () => {
+        isDragging = false;
+        isAddingPoint = false;
+        canvasWrapper.classList.remove('grabbing');
+    });
+
+    // Prevent context menu on right click
+    canvasWrapper.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+    });
+
+    // Wheel zoom
+    canvasWrapper.addEventListener('wheel', (e) => {
+        e.preventDefault();
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newScale = Math.max(0.1, Math.min(10, scale * zoomFactor));
+
+        // Zoom towards mouse position
+        const beforeX = (mouseX - canvas.width / 2 - offsetX) / scale;
+        const beforeY = (mouseY - canvas.height / 2 - offsetY) / scale;
+
+        scale = newScale;
+
+        const afterX = (mouseX - canvas.width / 2 - offsetX) / scale;
+        const afterY = (mouseY - canvas.height / 2 - offsetY) / scale;
+
+        offsetX += (afterX - beforeX) * scale;
+        offsetY += (afterY - beforeY) * scale;
+
+        drawCartesianPlane();
+        updateZoomDisplay();
+        updateOriginDisplay();
+    });
+
+    function getPointAtPosition(x, y) {
+        const threshold = 10;
+        for (let i = 0; i < points.length; i++) {
+            const screenPos = cartesianToScreen(points[i].x, points[i].y);
+            const distance = Math.sqrt(
+                Math.pow(screenPos.x - x, 2) +
+                Math.pow(screenPos.y - y, 2)
+            );
+            if (distance < threshold) {
+                return i;
+            }
+        }
+        return null;
+    }
+
+    // Add point on click
+    function addPoint(e) {
+        if (isClosed) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+
+        const cartCoords = screenToCartesian(screenX, screenY);
+
+        // Snap to grid (optional, can be toggled)
+        const snappedX = Math.round(cartCoords.x * 2) / 2; // snap to 0.5 units
+        const snappedY = Math.round(cartCoords.y * 2) / 2;
+
+        points.push({ x: snappedX, y: snappedY });
+        updateVertexCount();
+        drawCartesianPlane();
+        updateStatus('AGGIUNGENDO VERTICI');
+    }
+
+    function drawPolygon() {
+        if (points.length === 0) return;
+
+        // Verifica validità se ci sono abbastanza punti
+        let isValid = true;
+        if (points.length >= 3) {
+            const validation = validatePolygon();
+            isValid = validation.valid;
+        }
+
+        // Colore basato sulla validità
+        const lineColor = isValid ? '#00ff88' : '#ff3366';
+        const fillColor = isValid ? 'rgba(0, 255, 136, 0.15)' : 'rgba(255, 51, 102, 0.15)';
+
+        // Convert all points to screen coordinates
+        const screenPoints = points.map(p => cartesianToScreen(p.x, p.y));
+
+        // Draw lines
+        if (screenPoints.length > 1) {
+            ctx.beginPath();
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 3;
+            ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+
+            for (let i = 1; i < screenPoints.length; i++) {
+                ctx.lineTo(screenPoints[i].x, screenPoints[i].y);
+            }
+
+            if (isClosed && screenPoints.length > 2) {
+                ctx.closePath();
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+            }
+
+            ctx.stroke();
+        }
+
+        // Draw closing line preview (if not closed yet)
+        if (!isClosed && screenPoints.length > 2) {
+            ctx.beginPath();
+            ctx.setLineDash([8, 8]);
+            ctx.strokeStyle = 'rgba(0, 255, 136, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.moveTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+            ctx.lineTo(screenPoints[0].x, screenPoints[0].y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Draw points
+        screenPoints.forEach((screenPoint, index) => {
+            // Point circle
+            ctx.beginPath();
+            ctx.arc(screenPoint.x, screenPoint.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = lineColor;
+            ctx.fill();
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Highlight first point
+            if (index === 0) {
+                ctx.beginPath();
+                ctx.arc(screenPoint.x, screenPoint.y, 10, 0, Math.PI * 2);
+                ctx.strokeStyle = lineColor;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Draw coordinates
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px Space Mono';
+            ctx.shadowColor = '#000000';
+            ctx.shadowBlur = 3;
+            const label = `(${points[index].x.toFixed(1)}, ${points[index].y.toFixed(1)})`;
+            ctx.fillText(label, screenPoint.x + 12, screenPoint.y - 12);
+            ctx.shadowBlur = 0;
+        });
+
+        // Show validation status on canvas
+        if (points.length >= 3 && !isValid) {
+            ctx.fillStyle = 'rgba(255, 51, 102, 0.95)';
+            ctx.font = 'bold 16px Space Mono';
+            ctx.shadowColor = '#000000';
+            ctx.shadowBlur = 5;
+            ctx.fillText('⚠ POLIGONO NON VALIDO', 15, canvas.height - 15);
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    // Reset view (used by reset canvas button)
+    function resetView() {
+        scale = 1;
+        offsetX = 0;
+        offsetY = 0;
+        drawCartesianPlane();
+        updateZoomDisplay();
+        updateOriginDisplay();
+    }
+
+    function updateZoomDisplay() {
+        document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+    }
+
+    function updateOriginDisplay() {
+        const origin = screenToCartesian(canvas.width / 2, canvas.height / 2);
+        document.getElementById('originX').textContent = origin.x.toFixed(1);
+        document.getElementById('originY').textContent = origin.y.toFixed(1);
+    }
+
+    function updateVertexCount() {
+        document.getElementById('vertexCount').textContent = points.length;
+    }
+
+    function updateStatus(status) {
+        document.getElementById('canvasStatus').textContent = status;
+    }
+
+    function closePolygon() {
+        if (points.length < 3) {
+            showError('Servono almeno 3 punti per chiudere il poligono');
+            return;
+        }
+
+        // Imposta il poligono come chiuso PRIMA della validazione
+        isClosed = true;
+
+        // Verifica che il poligono sia valido
+        const validation = validatePolygon();
+        if (!validation.valid) {
+            showError(validation.message);
+            isClosed = false; // Rimetti a false se non valido
+            drawCartesianPlane();
+            return;
+        }
+
+        drawPolygon();
+        updateStatus('POLIGONO CHIUSO E VALIDO');
+        analyzePolygon();
+    }
+
+    function resetCanvas() {
+        points = [];
+        isClosed = false;
+        resetView(); // Also reset zoom and pan
+        updateVertexCount();
+        updateStatus('ATTESA INPUT');
+        document.getElementById('results').innerHTML = `
+                <div style="text-align: center; color: var(--text-secondary); padding: 40px 20px;">
+                    <div style="font-size: 3em; margin-bottom: 10px;">⬡</div>
+                    <div>Nessun dato disponibile</div>
+                </div>
+            `;
+        document.getElementById('detailedStats').innerHTML = '';
+    }
+
+    function analyzePolygon() {
+        if (points.length < 3) {
+            showError('Servono almeno 3 punti per analizzare il poligono');
+            return;
+        }
+
+        // Verifica validità del poligono
+        const validation = validatePolygon();
+        if (!validation.valid) {
+            showError(validation.message);
+            return;
+        }
+
+        const sides = points.length;
+        const polygonName = classifyPolygon(sides);
+        const perimeter = calculatePerimeter();
+        const area = calculateArea();
+        const sideLengths = calculateSideLengths();
+
+        displayResults(polygonName, sides, perimeter, area, sideLengths);
+    }
+
+    // Funzione di validazione completa del poligono
+    function validatePolygon() {
+        // 1. CONTROLLO MINIMO 3 PUNTI
+        if (points.length < 3) {
+            return { valid: false, message: 'Servono almeno 3 punti per formare un poligono' };
+        }
+
+        // 2. CONTROLLO PUNTI UNICI (no duplicati)
+        const uniquePoints = removeDuplicatePoints();
+        if (uniquePoints.length < 3) {
+            return { valid: false, message: 'Ci sono punti duplicati. Servono almeno 3 punti distinti' };
+        }
+
+        // 3. CONTROLLO COLLINEARITÀ (tutti i punti sulla stessa retta)
+        if (areAllPointsCollinear(uniquePoints)) {
+            return { valid: false, message: 'Tutti i punti appartengono ad una sola retta. Non forma un poligono' };
+        }
+
+        // 4. CONTROLLO RETTE INCIDENTI (segmenti che si intersecano)
+        if (hasIntersectingSegments()) {
+            return { valid: false, message: 'Il poligono ha segmenti che si intersecano. Non è valido (è intrecciato)' };
+        }
+
+        return { valid: true, message: 'Poligono valido!' };
+    }
+
+    // Rimuove punti duplicati
+    function removeDuplicatePoints() {
+        const unique = [];
+        const tolerance = 0.1; // tolleranza in unità cartesiane (non pixel)
+
+        for (let i = 0; i < points.length; i++) {
+            let isDuplicate = false;
+            for (let j = 0; j < unique.length; j++) {
+                const distance = Math.sqrt(
+                    Math.pow(points[i].x - unique[j].x, 2) +
+                    Math.pow(points[i].y - unique[j].y, 2)
+                );
+                if (distance < tolerance) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+            if (!isDuplicate) {
+                unique.push(points[i]);
+            }
+        }
+        return unique;
+    }
+
+    // Controlla se tutti i punti sono collineari
+    function areAllPointsCollinear(pts) {
+        if (pts.length < 3) return false;
+
+        // Usa i primi due punti per definire una retta
+        const p1 = pts[0];
+        const p2 = pts[1];
+
+        // Calcola l'equazione della retta: ax + by + c = 0
+        const a = p2.y - p1.y;
+        const b = p1.x - p2.x;
+        const c = p2.x * p1.y - p1.x * p2.y;
+
+        const tolerance = 0.1; // tolleranza in unità cartesiane
+
+        // Controlla se tutti gli altri punti appartengono alla stessa retta
+        for (let i = 2; i < pts.length; i++) {
+            const distance = Math.abs(a * pts[i].x + b * pts[i].y + c) /
+                Math.sqrt(a * a + b * b);
+            if (distance > tolerance) {
+                return false; // Almeno un punto non è sulla retta
+            }
+        }
+
+        return true; // Tutti i punti sono collineari
+    }
+
+    // Controlla se ci sono segmenti che si intersecano
+    function hasIntersectingSegments() {
+        const segments = [];
+
+        // Crea tutti i segmenti del poligono
+        for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            segments.push({ p1, p2, index: i });
+        }
+
+        // Controlla ogni coppia di segmenti non adiacenti
+        for (let i = 0; i < segments.length; i++) {
+            for (let j = i + 1; j < segments.length; j++) {
+                // Salta segmenti adiacenti (condividono un vertice)
+                if (Math.abs(i - j) === 1 ||
+                    (i === 0 && j === segments.length - 1)) {
+                    continue;
+                }
+
+                // Controlla se i segmenti si intersecano
+                if (doSegmentsIntersect(segments[i], segments[j])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // Determina se due segmenti si intersecano
+    function doSegmentsIntersect(seg1, seg2) {
+        const p1 = seg1.p1;
+        const p2 = seg1.p2;
+        const p3 = seg2.p1;
+        const p4 = seg2.p2;
+
+        // Calcola le direzioni
+        const d1 = direction(p3, p4, p1);
+        const d2 = direction(p3, p4, p2);
+        const d3 = direction(p1, p2, p3);
+        const d4 = direction(p1, p2, p4);
+
+        // Controllo di intersezione generale
+        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+            ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+            return true;
+        }
+
+        // Controllo punti collineari sui segmenti
+        if (d1 === 0 && onSegment(p3, p1, p4)) return true;
+        if (d2 === 0 && onSegment(p3, p2, p4)) return true;
+        if (d3 === 0 && onSegment(p1, p3, p2)) return true;
+        if (d4 === 0 && onSegment(p1, p4, p2)) return true;
+
+        return false;
+    }
+
+    // Calcola la direzione (prodotto vettoriale)
+    function direction(p1, p2, p3) {
+        return (p3.x - p1.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p1.y);
+    }
+
+    // Verifica se il punto q si trova sul segmento pr
+    function onSegment(p, q, r) {
+        return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) &&
+            q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+    }
+
+    function classifyPolygon(sides) {
+        const names = {
+            3: 'Triangolo',
+            4: 'Quadrilatero',
+            5: 'Pentagono',
+            6: 'Esagono',
+            7: 'Ettagono',
+            8: 'Ottagono',
+            9: 'Ennagono',
+            10: 'Decagono',
+            11: 'Endecagono',
+            12: 'Dodecagono'
+        };
+
+        return names[sides] || `Poligono ${sides}-lati`;
+    }
+
+    function calculatePerimeter() {
+        let perimeter = 0;
+        for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            // Calcola distanza euclidea tra coordinate cartesiane
+            perimeter += Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        }
+        return perimeter.toFixed(2);
+    }
+
+    function calculateArea() {
+        let area = 0;
+        for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            // Formula del laccio (Shoelace formula) per coordinate cartesiane
+            area += (p1.x * p2.y - p2.x * p1.y);
+        }
+        return Math.abs(area / 2).toFixed(2);
+    }
+
+    function calculateSideLengths() {
+        const lengths = [];
+        for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            // Calcola distanza euclidea tra coordinate cartesiane
+            const length = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+            lengths.push(length.toFixed(2));
+        }
+        return lengths;
+    }
+
+    function displayResults(name, sides, perimeter, area, sideLengths) {
+        const validation = validatePolygon();
+        const validBadge = validation.valid
+            ? '<div style="display: inline-block; background: rgba(0, 255, 136, 0.2); color: var(--accent); padding: 5px 15px; border: 2px solid var(--accent); font-family: Space Mono; font-size: 0.7em; letter-spacing: 2px; margin-top: 10px;">✓ POLIGONO VALIDO</div>'
+            : '<div style="display: inline-block; background: rgba(255, 51, 102, 0.2); color: var(--error); padding: 5px 15px; border: 2px solid var(--error); font-family: Space Mono; font-size: 0.7em; letter-spacing: 2px; margin-top: 10px;">✗ POLIGONO NON VALIDO</div>';
+
+        document.getElementById('results').innerHTML = `
+                <div class="result-item">
+                    <div class="result-label">Nome Poligono</div>
+                    <div class="result-value polygon-name">${name}</div>
+                    ${validBadge}
+                </div>
+                <div class="result-item">
+                    <div class="result-label">Numero di Lati</div>
+                    <div class="result-value">${sides}</div>
+                </div>
+            `;
+
+        document.getElementById('detailedStats').innerHTML = `
+                <div class="control-panel">
+                    <div class="section-title">Statistiche Dettagliate</div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Perimetro</div>
+                            <div class="stat-value">${perimeter} unità</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Area</div>
+                            <div class="stat-value">${area} unità²</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <div class="stat-label" style="margin-bottom: 10px;">Lunghezza Lati</div>
+                        ${sideLengths.map((length, index) => `
+                            <div style="padding: 8px; background: rgba(0,0,0,0.3); margin-bottom: 5px; border-left: 2px solid var(--accent);">
+                                <span style="color: var(--text-secondary);">Lato ${index + 1}:</span>
+                                <span style="color: var(--accent); font-weight: 600;">${length} unità</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div style="margin-top: 20px; padding: 15px; background: rgba(0, 255, 136, 0.05); border: 1px solid var(--accent);">
+                        <div class="stat-label" style="margin-bottom: 8px;">Status Validazione</div>
+                        <div style="color: ${validation.valid ? 'var(--accent)' : 'var(--error)'}; font-size: 0.9em;">
+                            ${validation.valid ? '✓' : '✗'} ${validation.message}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        updateStatus('ANALISI COMPLETATA');
+    }
+
+    function showError(message) {
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = `<div class="error-message">⚠ ${message}</div>`;
+        setTimeout(() => {
+            if (points.length === 0) {
+                resultsDiv.innerHTML = `
+                        <div style="text-align: center; color: var(--text-secondary); padding: 40px 20px;">
+                            <div style="font-size: 3em; margin-bottom: 10px;">⬡</div>
+                            <div>Nessun dato disponibile</div>
+                        </div>
+                    `;
+            }
+        }, 3000);
+    }
+</script>
+</body>
+</html>
